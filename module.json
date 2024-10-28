@@ -8,14 +8,19 @@
 			"name": "Javiondox",
 			"url": "https://github.com/javiondox",
 			"discord": "javiondox#6609"
+		},
+		{
+			"name": "SergioSJS",
+			"url": "https://github.com/SergioSJS",
+			"discord": ""
 		}
 	],
-	"url": "https://github.com/Javiondox/html-to-scene",
-	"readme": "https://github.com/Javiondox/html-to-scene/blob/master/readme.md",
-	"bugs": "https://github.com/Javiondox/html-to-scene/issues",
-	"changelog": "https://github.com/Javiondox/html-to-scene/releases",
+	"url": "https://github.com/SergioSJS/html-to-scene-gambiarra",
+	"readme": "https://github.com/SergioSJS/html-to-scene-gambiarra/blob/master/readme.md",
+	"bugs": "https://github.com/SergioSJS/html-to-scene-gambiarra/issues",
+	"changelog": "https://github.com/SergioSJS/html-to-scene-gambiarra/releases",
 	"flags": {},
-	"version": "1.3.0",
+	"version": "1.3.1",
 	"minimumCoreVersion": "9",
 	"compatibleCoreVersion": "9",
 	"scripts": [],
@@ -37,8 +42,8 @@
 	"system": [],
 	"dependencies": [],
 	"socket": false,
-	"manifest": "https://github.com/Javiondox/html-to-scene/releases/latest/download/module.json",
-	"download": "https://github.com/Javiondox/html-to-scene/releases/latest/download/html-to-scene.zip",
+	"manifest": "https://github.com/SergioSJS/html-to-scene-gambiarra/releases/latest/download/module.json",
+	"download": "https://github.com/SergioSJS/html-to-scene-gambiarra/releases/latest/download/html-to-scene.zip",
 	"protected": false,
 	"coreTranslation": false,
 	"library": false
