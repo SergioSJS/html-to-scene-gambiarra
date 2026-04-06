@@ -294,7 +294,7 @@ class HTMLToScene {
 				this.nodeVisibility($('#ui-right')[0], 'visible');
 			}
 		} else {
-			this.setLeftStatus(this._oldLefttatus);
+			this.setLeftStatus(this._oldLeftStatus);
 			this.setBottomStatus(this._oldBottomStatus);
 			this.nodeVisibility($('#ui-top')[0], 'visible');
 			if (this.rightDisabled) {
@@ -507,7 +507,7 @@ class HTMLToScene {
 		//Checking if the iframe still exists, and deleting it in that case.
 		//Doing it visually doesn't cause a iFrame reload.
 		var otherNode = document.getElementById(nodeID);
-		if (otherNode != null && typeof otherNode == 'htmlelement') {
+		if (otherNode != null && otherNode instanceof HTMLElement) {
 			let otherZIndex = getComputedStyle(otherNode).getPropertyValue('z-index');
 			getComputedStyle(this._iFrameNode).setProperty(
 				'z-index',
