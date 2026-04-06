@@ -210,7 +210,10 @@ class HTMLToScene {
 	}
 
 	static init(...args) {
-		loadTemplates(['modules/html-to-scene/templates/sceneSettings.html']);
+		const load =
+			foundry.applications?.handlebars?.loadTemplates ??
+			globalThis.loadTemplates;
+		load(['modules/html-to-scene/templates/sceneSettings.html']);
 		ModuleSettings.registerSettings();
 		console.log(ModuleInfo.moduleprefix + 'Loaded');
 	}
@@ -584,7 +587,10 @@ class HTMLToScene {
 	 * @param {HTMLToSceneSettings} settings
 	 */
 	static async getSceneHtml(settings) {
-		return await renderTemplate(
+		const render =
+			foundry.applications?.handlebars?.renderTemplate ??
+			globalThis.renderTemplate;
+		return await render(
 			'modules/html-to-scene/templates/sceneSettings.html',
 			settings
 		);
