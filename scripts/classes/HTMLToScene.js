@@ -376,21 +376,36 @@ class HTMLToScene {
 	 *
 	 * @returns Width of the screen in pixels minus the width of the right controls
 	 */
+	/**
+	 * Viewport width minus right-docked UI (sidebar, chat column when separate from ui-right).
+	 */
 	static calcSpacedWidth() {
-		let rightControlsElement = document.getElementById('ui-right');
-		if (!rightControlsElement) {
-			return (
-				window.innerWidth ||
-				document.documentElement.clientWidth ||
-				document.body.clientWidth
-			);
+		const vw =
+			window.innerWidth ||
+			document.documentElement.clientWidth ||
+			document.body.clientWidth;
+		let reserve = 0;
+		const addVisibleWidth = (el) => {
+			if (!el) return;
+			const cs = window.getComputedStyle(el);
+			if (cs.display === 'none' || cs.visibility === 'hidden') return;
+			const r = el.getBoundingClientRect();
+			if (r.width <= 0) return;
+			reserve += r.width;
+		};
+		const ur = document.getElementById('ui-right');
+		addVisibleWidth(ur);
+		const chat = document.getElementById('chat');
+		if (chat && (!ur || !ur.contains(chat))) {
+			const cs = window.getComputedStyle(chat);
+			if (cs.display !== 'none' && cs.visibility !== 'hidden') {
+				const r = chat.getBoundingClientRect();
+				if (r.width > 0 && r.left > vw * 0.4) {
+					reserve += r.width;
+				}
+			}
 		}
-		let widthUImod = '' + rightControlsElement.offsetWidth;
-		return (
-			(window.innerWidth ||
-				document.documentElement.clientWidth ||
-				document.body.clientWidth) - widthUImod
-		);
+		return Math.max(0, vw - reserve);
 	}
 
 	/**
@@ -457,6 +472,40 @@ class HTMLToScene {
 	}
 
 	/**
+	 * Main sheet tab panel (direct child of .sheet-body), not nested sub-tabs inside Environment.
+	 * @param {HTMLElement} root
+	 * @param {string} tabId
+	 * @returns {HTMLElement | null}
+	 */
+	static _findTopLevelTabPanel(root, tabId) {
+		const panels = Array.from(
+			root.querySelectorAll(
+				`.tab[data-tab="${tabId}"], section.tab[data-tab="${tabId}"]`
+			)
+		);
+		const top = panels.find((el) =>
+			el.parentElement?.classList?.contains('sheet-body')
+		);
+		return top ?? panels[0] ?? null;
+	}
+
+	/**
+	 * Tab button for the main row (not nested inside another tab's body).
+	 * @param {HTMLElement} root
+	 * @param {string} tabId
+	 * @returns {HTMLElement | null}
+	 */
+	static _findTopLevelTabNav(root, tabId) {
+		const navs = Array.from(
+			root.querySelectorAll(
+				`[data-action="tab"][data-tab="${tabId}"], .item[data-tab="${tabId}"], button[data-tab="${tabId}"]`
+			)
+		);
+		const top = navs.find((n) => !n.closest('.sheet-body'));
+		return top ?? navs[0] ?? null;
+	}
+
+	/**
 	 * Find nav + tab panel anchors across Foundry v9–v14 SceneConfig DOM variants.
 	 * @param {HTMLElement} root
 	 * @returns {{ nav: HTMLElement, tab: HTMLElement, tabGroup: string } | null}
@@ -470,13 +519,8 @@ class HTMLToScene {
 			'misc',
 		];
 		for (const id of tabIds) {
-			const nav =
-				root.querySelector(`.item[data-tab="${id}"]`) ||
-				root.querySelector(`button[data-action="tab"][data-tab="${id}"]`) ||
-				root.querySelector(`[data-action="tab"][data-tab="${id}"]`);
-			const tab =
-				root.querySelector(`.tab[data-tab="${id}"]`) ||
-				root.querySelector(`section.tab[data-tab="${id}"]`);
+			const nav = this._findTopLevelTabNav(root, id);
+			const tab = this._findTopLevelTabPanel(root, id);
 			if (nav && tab) {
 				const tabGroup =
 					nav.dataset?.group ||
@@ -505,6 +549,71 @@ class HTMLToScene {
 	}
 
 	/**
+	 * Scene config template uses no inline globals; bind handlers after inject (AppV2 strips inline scripts).
+	 * @param {HTMLElement} root
+	 */
+	static _bindSceneConfigPanel(root) {
+		const panel = root.querySelector('.tab[data-tab="htmltoscene"]');
+		if (!panel || panel.dataset.htmltosceneBound === '1') return;
+		panel.dataset.htmltosceneBound = '1';
+
+		const runInit = () => {
+			const en = panel.querySelector('[name="flags.htmltoscene.enable"]');
+			if (en) this._sceneConfigSyncEnabled(panel, en);
+			const min = panel.querySelector('[name="flags.htmltoscene.minUI"]');
+			if (min) this._sceneConfigSyncMinUI(panel, min);
+			const pd = panel.querySelector('[name="flags.htmltoscene.passData"]');
+			if (pd) this._sceneConfigSyncPassData(panel, pd);
+			const macrosCb = panel.querySelector('#htmltosceneAutoMacrosCB');
+			const macrosBlock = panel.querySelector('.htmltosceneAutoMacros');
+			if (macrosCb && macrosBlock) {
+				this._sceneConfigSyncAutoMacros(panel, macrosCb);
+			}
+		};
+
+		panel.addEventListener('change', (ev) => {
+			const t = ev.target;
+			const name = t.getAttribute?.('name');
+			if (name === 'flags.htmltoscene.enable') {
+				this._sceneConfigSyncEnabled(panel, t);
+			} else if (name === 'flags.htmltoscene.minUI') {
+				this._sceneConfigSyncMinUI(panel, t);
+			} else if (name === 'flags.htmltoscene.passData') {
+				this._sceneConfigSyncPassData(panel, t);
+			} else if (name === 'flags.htmltoscene.autoMacrosEnabled') {
+				this._sceneConfigSyncAutoMacros(panel, t);
+			}
+		});
+
+		runInit();
+	}
+
+	static _sceneConfigSyncEnabled(panel, cb) {
+		const syncTargets = panel.getElementsByClassName('htmltosceneEnabledOnly');
+		Array.prototype.forEach.call(syncTargets, (syncTarget) => {
+			syncTarget.disabled = !cb.checked;
+		});
+	}
+
+	static _sceneConfigSyncMinUI(panel, cb) {
+		const syncTargets = panel.getElementsByClassName('htmltosceneMinUIOnly');
+		Array.prototype.forEach.call(syncTargets, (syncTarget) => {
+			syncTarget.disabled = !cb.checked;
+		});
+	}
+
+	static _sceneConfigSyncPassData(panel, cb) {
+		const syncTarget = panel.querySelector('#dataUpdateRateID');
+		if (syncTarget) syncTarget.disabled = !cb.checked;
+	}
+
+	static _sceneConfigSyncAutoMacros(panel, cb) {
+		const block = panel.querySelector('.htmltosceneAutoMacros');
+		if (!block) return;
+		block.style.display = cb.checked ? '' : 'none';
+	}
+
+	/**
 	 * Handles the renderSceneConfig Hook (DocumentSheet v1 + ApplicationV2).
 	 *
 	 * @param {SceneConfig} sceneConfig
@@ -523,6 +632,7 @@ class HTMLToScene {
 		}
 
 		if (root.querySelector('.tab[data-tab="htmltoscene"]')) {
+			this._bindSceneConfigPanel(root);
 			return;
 		}
 
@@ -556,6 +666,8 @@ class HTMLToScene {
 			tabGroup: safeGroup,
 		};
 		tab.insertAdjacentHTML('afterend', await this.getSceneHtml(sceneTemplateData));
+
+		this._bindSceneConfigPanel(root);
 
 		sceneConfig.setPosition?.();
 	}
