@@ -101,7 +101,7 @@ class HTMLToScene {
 
 	/** @type {Object} */
 	static get flags() {
-		return canvas.scene.flags;
+		return canvas.scene?.flags ?? {};
 	}
 
 	/** Getters **/
@@ -220,7 +220,10 @@ class HTMLToScene {
 
 	static replace(...args) {
 		if (!this.enabled) {
-			this.restoreUI();
+			// canvasReady can run before the game chrome (#logo, #ui-left, …) exists; skip restore on first draw
+			if (this._lastSceneWasHTML || this._iFrameNode != null) {
+				this.restoreUI();
+			}
 			this._lastSceneWasHTML = false;
 			//this.saveUIStatus();
 			return;
@@ -375,6 +378,13 @@ class HTMLToScene {
 	 */
 	static calcSpacedWidth() {
 		let rightControlsElement = document.getElementById('ui-right');
+		if (!rightControlsElement) {
+			return (
+				window.innerWidth ||
+				document.documentElement.clientWidth ||
+				document.body.clientWidth
+			);
+		}
 		let widthUImod = '' + rightControlsElement.offsetWidth;
 		return (
 			(window.innerWidth ||
@@ -794,6 +804,7 @@ class HTMLToScene {
 	 * @returns Boolean
 	 */
 	static isDOMNodeShown(el) {
+		if (!el?.style) return false;
 		return el.style.visibility != 'hidden' ? true : false;
 	}
 
@@ -935,8 +946,9 @@ class HTMLToScene {
 	 * @param {String} visibility
 	 */
 	static nodeVisibility(DOMNode, visibility) {
+		if (!DOMNode?.style) return;
 		if (
-			DOMNode === '#logo' &&
+			DOMNode.id === 'logo' &&
 			visibility === 'visible' &&
 			!this.showFoundryLogo()
 		)
