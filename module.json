@@ -20,7 +20,7 @@
 	"changelog": "https://github.com/SergioSJS/html-to-scene-gambiarra/releases",
 	"license": "LICENSE",
 	"flags": {},
-	"version": "1.3.8",
+	"version": "1.3.9",
 	"compatibility": {
 		"minimum": "10",
 		"verified": "14"
@@ -28,7 +28,7 @@
 	"media": [],
 	"scripts": [],
 	"esmodules": ["scripts/core.js"],
-	"styles": [],
+	"styles": ["styles/scene-config.css"],
 	"languages": [
 		{
 			"lang": "en",

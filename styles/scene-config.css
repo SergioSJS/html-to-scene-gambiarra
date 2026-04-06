@@ -1,0 +1,64 @@
+/* HTML To Scene — Scene Config tab: match ApplicationV2 .standard-form layout */
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group {
+	display: grid;
+	grid-template-columns: minmax(10rem, 14rem) 1fr;
+	gap: 0.35rem 1rem;
+	align-items: start;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group > label {
+	padding-top: 0.35em;
+	line-height: 1.35;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group > .form-fields {
+	min-width: 0;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group > .form-fields .html-input {
+	flex: 1 1 12rem;
+	min-width: 0;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group > .hint {
+	grid-column: 1 / -1;
+	margin: 0;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] fieldset.htsc-section {
+	margin: 0.75rem 0;
+	padding: 0.35rem 0.5rem 0.75rem;
+	border: 1px solid var(--color-border-light-primary, #444);
+	border-radius: 4px;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] fieldset.htsc-section > legend {
+	padding: 0 0.35rem;
+	font-weight: 600;
+	font-size: 0.95em;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .htsc-macro-fields {
+	flex-direction: column;
+	align-items: stretch;
+	width: 100%;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group.htmltosceneAutoMacros.htsc-macro-rows {
+	grid-template-columns: 1fr;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .form-group.htmltosceneAutoMacros .form-fields {
+	grid-column: 1 / -1;
+}
+
+section.window-content.standard-form .tab[data-tab='htmltoscene'] .htsc-trust-warning {
+	font-style: italic;
+	color: var(--color-text-dark-secondary, #6b4423);
+	margin-top: 0.75rem;
+}

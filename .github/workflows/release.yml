@@ -31,7 +31,7 @@ jobs:
         run: |
           mkdir -p dist/html-to-scene
           cp module.json LICENSE README.md foundryvttaccess.html dist/html-to-scene/
-          cp -r scripts templates lang dist/html-to-scene/
+          cp -r scripts templates lang styles dist/html-to-scene/
           (cd dist && zip -r ../html-to-scene.zip html-to-scene)
 
       - name: Publish GitHub Release

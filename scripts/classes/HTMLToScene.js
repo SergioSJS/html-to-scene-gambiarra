@@ -472,68 +472,66 @@ class HTMLToScene {
 	}
 
 	/**
-	 * Main sheet tab panel (direct child of .sheet-body), not nested sub-tabs inside Environment.
+	 * Scene config sheet root (v13+): top tabs use data-group="sheet" on section.window-content.
 	 * @param {HTMLElement} root
-	 * @param {string} tabId
-	 * @returns {HTMLElement | null}
+	 * @returns {HTMLElement}
 	 */
-	static _findTopLevelTabPanel(root, tabId) {
-		const panels = Array.from(
-			root.querySelectorAll(
-				`.tab[data-tab="${tabId}"], section.tab[data-tab="${tabId}"]`
+	static _findSceneConfigSection(root) {
+		if (
+			root?.matches?.(
+				'section.window-content.standard-form, section.standard-form'
 			)
+		) {
+			return root;
+		}
+		return (
+			root.querySelector('section.window-content.standard-form') ||
+			root.querySelector('section.standard-form') ||
+			root
 		);
-		const top = panels.find((el) =>
-			el.parentElement?.classList?.contains('sheet-body')
-		);
-		return top ?? panels[0] ?? null;
 	}
 
 	/**
-	 * Tab button for the main row (not nested inside another tab's body).
-	 * @param {HTMLElement} root
-	 * @param {string} tabId
-	 * @returns {HTMLElement | null}
+	 * v13+ SceneConfig: main row is nav.sheet-tabs + .tab[data-group="sheet"] (not nested "ambience" sub-tabs).
+	 * @param {HTMLElement} section
+	 * @returns {{ nav: HTMLElement, tab: HTMLElement, tabGroup: string } | null}
 	 */
-	static _findTopLevelTabNav(root, tabId) {
-		const navs = Array.from(
-			root.querySelectorAll(
-				`[data-action="tab"][data-tab="${tabId}"], .item[data-tab="${tabId}"], button[data-tab="${tabId}"]`
-			)
+	static _findSceneConfigTabAnchorsV13(section) {
+		const mainNav = section.querySelector('nav.sheet-tabs');
+		const ambienceLink = mainNav?.querySelector(
+			'a[data-action="tab"][data-group="sheet"][data-tab="ambience"]'
 		);
-		const top = navs.find((n) => !n.closest('.sheet-body'));
-		return top ?? navs[0] ?? null;
+		const ambiencePanel = section.querySelector(
+			'.tab[data-group="sheet"][data-tab="ambience"]'
+		);
+		if (ambienceLink && ambiencePanel) {
+			return { nav: ambienceLink, tab: ambiencePanel, tabGroup: 'sheet' };
+		}
+		return null;
 	}
 
 	/**
-	 * Find nav + tab panel anchors across Foundry v9–v14 SceneConfig DOM variants.
+	 * Older layouts (nested ambience, or missing sheet group metadata).
 	 * @param {HTMLElement} root
 	 * @returns {{ nav: HTMLElement, tab: HTMLElement, tabGroup: string } | null}
 	 */
-	static _findSceneConfigTabAnchors(root) {
-		const tabIds = [
-			'environment',
-			'ambience',
-			'basics',
-			'visibility',
-			'misc',
-		];
-		for (const id of tabIds) {
-			const nav = this._findTopLevelTabNav(root, id);
-			const tab = this._findTopLevelTabPanel(root, id);
-			if (nav && tab) {
-				const tabGroup =
-					nav.dataset?.group ||
-					nav.getAttribute('data-group') ||
-					tab.dataset?.group ||
-					tab.getAttribute('data-group') ||
-					'sheet';
-				return { nav, tab, tabGroup };
-			}
+	static _findSceneConfigTabAnchorsLegacy(root) {
+		const section = this._findSceneConfigSection(root);
+		const tab = section.querySelector(
+			'.tab[data-group="sheet"][data-tab="ambience"]'
+		);
+		const nav =
+			section.querySelector(
+				'nav.sheet-tabs a[data-action="tab"][data-group="sheet"][data-tab="ambience"]'
+			) ||
+			section.querySelector(
+				'nav.sheet-tabs button[data-action="tab"][data-group="sheet"][data-tab="ambience"]'
+			);
+		if (nav && tab) {
+			return { nav, tab, tabGroup: 'sheet' };
 		}
-		// v10–12 nested ambience (sub-tab "basic")
 		const navAmb = root.querySelector(
-			'.item[data-group="ambience"][data-tab="basic"], .item[data-tab="ambience"]'
+			'.item[data-group="ambience"][data-tab="basic"], button[data-action="tab"][data-group="ambience"][data-tab="basic"]'
 		);
 		const tabAmb = root.querySelector(
 			'.tab[data-group="ambience"][data-tab="basic"]'
@@ -549,11 +547,27 @@ class HTMLToScene {
 	}
 
 	/**
+	 * Find nav + tab panel anchors (v13 main sheet tabs first).
+	 * @param {HTMLElement} root
+	 * @returns {{ nav: HTMLElement, tab: HTMLElement, tabGroup: string } | null}
+	 */
+	static _findSceneConfigTabAnchors(root) {
+		const section = this._findSceneConfigSection(root);
+		return (
+			this._findSceneConfigTabAnchorsV13(section) ||
+			this._findSceneConfigTabAnchorsLegacy(root)
+		);
+	}
+
+	/**
 	 * Scene config template uses no inline globals; bind handlers after inject (AppV2 strips inline scripts).
 	 * @param {HTMLElement} root
 	 */
 	static _bindSceneConfigPanel(root) {
-		const panel = root.querySelector('.tab[data-tab="htmltoscene"]');
+		const panel =
+			root.querySelector(
+				'.tab[data-group="sheet"][data-tab="htmltoscene"]'
+			) || root.querySelector('.tab[data-tab="htmltoscene"]');
 		if (!panel || panel.dataset.htmltosceneBound === '1') return;
 		panel.dataset.htmltosceneBound = '1';
 
@@ -631,7 +645,10 @@ class HTMLToScene {
 			return;
 		}
 
-		if (root.querySelector('.tab[data-tab="htmltoscene"]')) {
+		if (
+			root.querySelector('.tab[data-group="sheet"][data-tab="htmltoscene"]') ||
+			root.querySelector('.tab[data-tab="htmltoscene"]')
+		) {
 			this._bindSceneConfigPanel(root);
 			return;
 		}
@@ -647,17 +664,15 @@ class HTMLToScene {
 
 		const { nav, tab, tabGroup } = anchors;
 		const label = game.i18n.localize('htmltoscene.modulename');
+		const labelHtml = foundry.utils.escapeHTML(label);
 		const safeGroup =
 			String(tabGroup).replace(/[^a-zA-Z0-9_-]/g, '') || 'sheet';
 		const groupAttr = safeGroup.replace(/"/g, '&quot;');
-		const isButton =
-			nav.tagName === 'BUTTON' ||
-			nav.dataset?.action === 'tab' ||
-			nav.getAttribute('data-action') === 'tab';
+		const isButton = nav.tagName === 'BUTTON';
 
 		const navHtml = isButton
-			? `<button type="button" class="item" data-action="tab" data-group="${groupAttr}" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${label}</button>`
-			: `<a class="item" data-group="${groupAttr}" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${label}</a>`;
+			? `<button type="button" class="item" data-action="tab" data-group="${groupAttr}" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${labelHtml}</button>`
+			: `<a data-action="tab" data-group="${groupAttr}" data-tab="htmltoscene"><i class="fa-solid fa-file-code" inert=""></i><span>${labelHtml}</span></a>`;
 
 		nav.insertAdjacentHTML('afterend', navHtml);
 
