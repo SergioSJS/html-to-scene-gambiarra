@@ -429,58 +429,153 @@ class HTMLToScene {
 	/* Scene configuration code */
 
 	/**
-	 * Handles the renderSceneConfig Hook
-	 *
-	 * Injects HTML into the scene config.
+	 * Root element for SceneConfig hooks: AppV2 passes a plain HTMLElement (no jQuery .find).
 	 * @param {SceneConfig} sceneConfig
-	 * @param {jQuery} html
-	 * @param {Object} data
+	 * @param {HTMLElement|JQuery} html
+	 * @returns {HTMLElement|null}
 	 */
+	static _sceneConfigRoot(sceneConfig, html) {
+		const fromApp = sceneConfig?.element;
+		if (fromApp instanceof HTMLElement) return fromApp;
+		if (html instanceof HTMLElement) return html;
+		if (html?.jquery && html[0] instanceof HTMLElement) return html[0];
+		if (html?.[0] instanceof HTMLElement) return html[0];
+		return null;
+	}
 
-	static async renderSceneConfig(sceneConfig, html, data) {
-		const ambItem = html.find('.item[data-tab=ambience]');
-		const ambTab = html.find('.tab[data-tab=ambience]');
-
-		ambItem.after(
-			`<a class="item" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${game.i18n.localize(
-				'htmltoscene.modulename'
-			)}</a>`
+	/**
+	 * Find nav + tab panel anchors across Foundry v9–v14 SceneConfig DOM variants.
+	 * @param {HTMLElement} root
+	 * @returns {{ nav: HTMLElement, tab: HTMLElement, tabGroup: string } | null}
+	 */
+	static _findSceneConfigTabAnchors(root) {
+		const tabIds = [
+			'environment',
+			'ambience',
+			'basics',
+			'visibility',
+			'misc',
+		];
+		for (const id of tabIds) {
+			const nav =
+				root.querySelector(`.item[data-tab="${id}"]`) ||
+				root.querySelector(`button[data-action="tab"][data-tab="${id}"]`) ||
+				root.querySelector(`[data-action="tab"][data-tab="${id}"]`);
+			const tab =
+				root.querySelector(`.tab[data-tab="${id}"]`) ||
+				root.querySelector(`section.tab[data-tab="${id}"]`);
+			if (nav && tab) {
+				const tabGroup =
+					nav.dataset?.group ||
+					nav.getAttribute('data-group') ||
+					tab.dataset?.group ||
+					tab.getAttribute('data-group') ||
+					'sheet';
+				return { nav, tab, tabGroup };
+			}
+		}
+		// v10–12 nested ambience (sub-tab "basic")
+		const navAmb = root.querySelector(
+			'.item[data-group="ambience"][data-tab="basic"], .item[data-tab="ambience"]'
 		);
-		let sceneTemplateData = await this.getSceneTemplateData(data);
-		ambTab.after(await this.getSceneHtml(sceneTemplateData));
+		const tabAmb = root.querySelector(
+			'.tab[data-group="ambience"][data-tab="basic"]'
+		);
+		if (navAmb && tabAmb) {
+			const tabGroup =
+				navAmb.dataset?.group ||
+				navAmb.getAttribute('data-group') ||
+				'ambience';
+			return { nav: navAmb, tab: tabAmb, tabGroup };
+		}
+		return null;
+	}
 
-		//Filepicker
-		/*$('#html-picker').click(() => {
-			const fp = new FilePicker({
-				type: 'any',
-				button: 'html-picker',
-				title: 'Select a HTML file',
-				callback: (url) => {
-					console.log(url);
-				},
-			});
-			fp.browse();
-		});*/
+	/**
+	 * Handles the renderSceneConfig Hook (DocumentSheet v1 + ApplicationV2).
+	 *
+	 * @param {SceneConfig} sceneConfig
+	 * @param {HTMLElement|JQuery} html
+	 * @param {object} data
+	 * @param {object} [options]
+	 */
+	static async renderSceneConfig(sceneConfig, html, data, _options) {
+		const root = this._sceneConfigRoot(sceneConfig, html);
+		if (!root?.querySelector) {
+			console.warn(
+				ModuleInfo.moduleprefix +
+					'renderSceneConfig: could not resolve root element.'
+			);
+			return;
+		}
+
+		if (root.querySelector('.tab[data-tab="htmltoscene"]')) {
+			return;
+		}
+
+		const anchors = this._findSceneConfigTabAnchors(root);
+		if (!anchors) {
+			console.warn(
+				ModuleInfo.moduleprefix +
+					'renderSceneConfig: no SceneConfig tab anchors found (HTML To Scene tab not added).'
+			);
+			return;
+		}
+
+		const { nav, tab, tabGroup } = anchors;
+		const label = game.i18n.localize('htmltoscene.modulename');
+		const safeGroup =
+			String(tabGroup).replace(/[^a-zA-Z0-9_-]/g, '') || 'sheet';
+		const groupAttr = safeGroup.replace(/"/g, '&quot;');
+		const isButton =
+			nav.tagName === 'BUTTON' ||
+			nav.dataset?.action === 'tab' ||
+			nav.getAttribute('data-action') === 'tab';
+
+		const navHtml = isButton
+			? `<button type="button" class="item" data-action="tab" data-group="${groupAttr}" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${label}</button>`
+			: `<a class="item" data-group="${groupAttr}" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${label}</a>`;
+
+		nav.insertAdjacentHTML('afterend', navHtml);
+
+		const sceneTemplateData = {
+			...(await this.getSceneTemplateData(data, sceneConfig)),
+			tabGroup: safeGroup,
+		};
+		tab.insertAdjacentHTML('afterend', await this.getSceneHtml(sceneTemplateData));
+
+		sceneConfig.setPosition?.();
 	}
 
 	/**
 	 * Retrieves the current data for the scene being configured.
 	 *
 	 * @static
-	 * @param {object} data - The data being passed to the scene config template
+	 * @param {object} hookData - Render context / hook data
+	 * @param {SceneConfig} [sceneConfig]
 	 * @return {HTMLToSceneSettings}
 	 * @memberof HTMLToScene
 	 */
-	static getSceneTemplateData(hookData) {
-		const data = hookData.data?.flags?.htmltoscene || {
+	static getSceneTemplateData(hookData, sceneConfig) {
+		const defaults = {
 			enable: false,
 			fileLoc: '',
 			minUI: true,
 			spaceRight: true,
 			rightDisabled: false,
 			hidePaused: false,
+			tabGroup: 'sheet',
 		};
-		return data;
+		const raw = hookData?.data ?? hookData ?? {};
+		const fromHook = raw.flags?.htmltoscene;
+		const fromDoc =
+			sceneConfig?.document?.flags?.htmltoscene ??
+			sceneConfig?.document?.flags?.[ModuleInfo.moduleid];
+		const merged = foundry.utils.mergeObject(
+			defaults,
+			foundry.utils.mergeObject(fromDoc ?? {}, fromHook ?? {})
+		);
+		return merged;
 	}
 
 	/**

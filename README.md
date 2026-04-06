@@ -2,6 +2,14 @@
 
 A FoundryVTT module that allows embedding HTML files on scenes, or some pages that allow iframing.
 
+## Installation (manifest URL)
+
+In **Setup** → **Add-on Modules** → **Install Module**, paste this manifest URL:
+
+```
+https://github.com/SergioSJS/html-to-scene-gambiarra/releases/latest/download/module.json
+```
+
 ## Some images
 
 ![FoundryVTT's website inside FoundryVTT](exampleimage004.png)
